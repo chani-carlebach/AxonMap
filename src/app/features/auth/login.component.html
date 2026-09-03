@@ -1,0 +1,70 @@
+<!-- דף הכניסה: מאפשר למשתמש להתחבר לפי תפקידו ולכניסה למסך המתאים באפליקציה. -->
+<div class="login-container">
+  <div class="login-card">
+
+    <div class="logo">
+      <div class="logo-icon">🚑</div>
+      <h1>AxonMap</h1>
+      <p>מערכת ניהול חירום רפואי</p>
+    </div>
+
+    <form #loginForm="ngForm">
+
+      <div class="form-group">
+        <label>אימייל</label>
+        <input
+          type="email"
+          [(ngModel)]="credentials.email"
+          name="email"
+          #emailField="ngModel"
+          required
+          email
+          placeholder="your@email.com"
+          class="input-field"
+        />
+        <div *ngIf="emailField.invalid && (emailField.dirty || emailField.touched)" class="field-error">
+          <span *ngIf="emailField.errors?.['required']">שדה חובה</span>
+          <span *ngIf="emailField.errors?.['email']">כתובת אימייל לא תקינה</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>סיסמה</label>
+        <input
+          type="password"
+          [(ngModel)]="credentials.password"
+          name="password"
+          #passwordField="ngModel"
+          required
+          minlength="4"
+          placeholder="••••••••"
+          class="input-field"
+        />
+        <div *ngIf="passwordField.invalid && (passwordField.dirty || passwordField.touched)" class="field-error">
+          <span *ngIf="passwordField.errors?.['required']">שדה חובה</span>
+          <span *ngIf="passwordField.errors?.['minlength']">לפחות 4 תווים</span>
+        </div>
+      </div>
+
+      <div class="error-message" *ngIf="errorMessage">
+        {{ errorMessage }}
+      </div>
+
+      <button class="login-btn" (click)="onLogin()" [disabled]="isLoading || loginForm.invalid">
+        <span *ngIf="!isLoading">כניסה למערכת</span>
+        <span *ngIf="isLoading">מתחבר...</span>
+      </button>
+
+    </form>
+
+    <!-- ⚠️ זמני — להסרה כשה-Auth-Service האמיתי מוכן ⚠️ -->
+    <div class="mock-hint">
+      <strong>מצב בדיקה (ללא שרת):</strong>
+      <div>dispatcher&#64;test.com — דיספצ'ר</div>
+      <div>responder&#64;test.com — כונן</div>
+      <div>volunteer&#64;test.com — מתנדב</div>
+      <div>כל סיסמה עובדת</div>
+    </div>
+
+  </div>
+</div>

@@ -1,0 +1,283 @@
+<!-- דף המוקד: מציג את כל הקריאות הפעילות, את כמות הכוננים והאתר שבו אפשר לפתוח קריאה חדשה. -->
+<!-- ⚠️ זמני — פאנל בדיקה ידני, להסרה כשהשרת האמיתי מחובר ⚠️ -->
+<div class="dev-panel">
+  <span class="dev-panel__label">🛠️ בדיקה:</span>
+  <button *ngFor="let s of devScreens" class="dev-panel__btn" (click)="s.action()">{{ s.label }}</button>
+</div>
+
+<div class="dispatcher-layout">
+
+  <div class="toast" *ngIf="toastMessage" [class]="'toast toast--' + toastType">
+    {{ toastMessage }}
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-header">
+      <span class="logo">🚑 AxonMap</span>
+      <button class="logout-btn" (click)="logout()">יציאה</button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-number">{{ activeCount }}</span>
+        <span class="stat-label">קריאות פעילות</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-number">{{ responders.length }}</span>
+        <span class="stat-label">כוננים</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-number">{{ availableResponders }}</span>
+        <span class="stat-label">פנויים</span>
+      </div>
+    </div>
+
+    <button class="new-call-btn" (click)="showNewCallForm = !showNewCallForm">
+      {{ showNewCallForm ? 'ביטול ✕' : '🚨 קריאה חדשה' }}
+    </button>
+
+    <div class="new-call-form" *ngIf="showNewCallForm">
+      <h3>פתיחת קריאה</h3>
+
+      <div class="form-group">
+        <label>סוג אירוע</label>
+        <div class="type-grid">
+          <button *ngFor="let type of emergencyTypes"
+            class="type-btn" [class.active]="newCall.type === type"
+            (click)="newCall.type = type">
+            {{ emergencyTypeLabels[type] }}
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group" [formGroup]="newCallForm">
+        <label>כתובת האירוע</label>
+        <input type="text" formControlName="city" placeholder="עיר"
+          class="form-control" (blur)="geocodeAddress()" />
+        <div *ngIf="fCity.invalid && (fCity.dirty || fCity.touched)" class="field-error">
+          <span *ngIf="fCity.errors?.['required']">שדה חובה</span>
+          <span *ngIf="fCity.errors?.['minlength']">לפחות 2 תווים</span>
+        </div>
+        <div class="address-row">
+          <input type="text" formControlName="street" placeholder="רחוב"
+            class="form-control street" (blur)="geocodeAddress()" />
+          <input type="text" formControlName="house" placeholder="מסב"
+            class="form-control house" (blur)="geocodeAddress()" />
+        </div>
+        <div *ngIf="fStreet.invalid && (fStreet.dirty || fStreet.touched)" class="field-error">
+          <span *ngIf="fStreet.errors?.['required']">יש להזין שם רחוב</span>
+        </div>
+        <small *ngIf="newCall.location.lat" class="geocode-ok">✓ מיקום אותר</small>
+      </div>
+
+      <div class="form-group">
+        <label>גיל מטופל</label>
+        <div class="age-grid">
+          <button *ngFor="let age of ageOptions"
+            class="age-btn" [class.active]="selectedAge === age.value"
+            (click)="selectedAge = age.value">
+            {{ age.label }}
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group" [formGroup]="newCallForm">
+        <label>פרטים נוספים</label>
+        <textarea formControlName="description" class="form-control"
+          rows="2" placeholder="תאר בקצרה את המצב..."></textarea>
+        <div *ngIf="fDescription.invalid && (fDescription.dirty || fDescription.touched)" class="field-error">
+          <span *ngIf="fDescription.errors?.['maxlength']">לא יותר מ-200 תווים</span>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-submit" (click)="submitNewCall()" [disabled]="fCity.invalid || fStreet.invalid">🚨 שלח קריאה</button>
+        <button class="btn-cancel" (click)="showNewCallForm = false">ביטול</button>
+      </div>
+    </div>
+
+    <div class="calls-section">
+      <div class="section-title">קריאות פעילות</div>
+
+      <div *ngIf="isLoading" class="loading-state">
+        <span>⏳ טוען קריאות...</span>
+      </div>
+      <div *ngIf="activeCalls.length === 0 && !isLoading" class="empty-state">
+        <span>✅ אין קריאות פעילות</span>
+      </div>
+
+      <div class="call-card"
+        *ngFor="let call of activeCalls"
+        [class.selected]="selectedCall?.id === call.id"
+        [ngClass]="getPriorityClass(call.priority)"
+        [appPulse]="call.priority"
+        (click)="selectCall(call)">
+        <div class="call-card-header">
+          <span class="call-type">{{ emergencyTypeLabels[call.type] }}</span>
+          <span class="call-status-badge">{{ getStatusLabel(call.status) }}</span>
+        </div>
+        <div class="call-location">
+          📍 {{ call.location.address || call.location.lat + ', ' + call.location.lng }}
+        </div>
+        <div class="call-footer">
+          <span class="call-priority-dot" [ngClass]="getPriorityClass(call.priority)"></span>
+          <app-action-button
+            label="סגור"
+            icon="✕"
+            variant="danger"
+            (clicked)="closeCall(call.id)"
+            (click)="$event.stopPropagation()">
+          </app-action-button>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <main class="main-content">
+
+    <div class="map-area">
+      <div class="map-placeholder">
+        <div class="map-icon">🗺️</div>
+        <h2>מפה חיה</h2>
+        <p>Google Maps יתחבר כאן לאחר הגדרת API Key</p>
+        <div class="map-pins">
+          <span *ngFor="let call of activeCalls"
+            class="map-pin" [ngClass]="getPriorityClass(call.priority)"
+            [title]="call.location.address || ''">
+            {{ (emergencyTypeLabels[call.type] || '').split(' ')[0] }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-panel" *ngIf="selectedCall">
+
+      <div class="detail-header">
+        <h3>פרטי קריאה</h3>
+        <button class="btn-close-panel"
+          (click)="selectedCall = null; routeRecommendations = []">✕</button>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-row">
+          <span class="detail-label">סוג</span>
+          <span class="detail-value">{{ emergencyTypeLabels[selectedCall.type] }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">סטטוס</span>
+          <span class="detail-value">{{ getStatusLabel(selectedCall.status) }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">עדיפות</span>
+          <span class="detail-value priority-text" [ngClass]="getPriorityClass(selectedCall.priority)">
+            {{ selectedCall.priority | priorityLabel }}
+          </span>
+        </div>
+        <div class="detail-row" *ngIf="selectedCall.location.address">
+          <span class="detail-label">מיקום</span>
+          <span class="detail-value">{{ selectedCall.location.address }}</span>
+        </div>
+      </div>
+
+      <div class="detail-section" *ngIf="selectedCall.patientData">
+        <div class="section-label">נתוני מטופל</div>
+        <div class="patient-grid">
+          <div class="patient-item">
+            <span class="p-label">הכרה</span>
+            <span class="p-value">{{ selectedCall.patientData.consciousness }}</span>
+          </div>
+          <div class="patient-item">
+            <span class="p-label">נשימה</span>
+            <span class="p-value">{{ selectedCall.patientData.breathing }}</span>
+          </div>
+          <div class="patient-item">
+            <span class="p-label">דופק</span>
+            <span class="p-value">{{ selectedCall.patientData.pulse }}</span>
+          </div>
+          <div class="patient-item">
+            <span class="p-label">פגיעה</span>
+            <span class="p-value">{{ selectedCall.patientData.injuryType }}</span>
+          </div>
+          <div class="patient-item" *ngIf="selectedCall.patientData.skinColor">
+            <span class="p-label">צבע עור</span>
+            <span class="p-value">{{ selectedCall.patientData.skinColor }}</span>
+          </div>
+          <div class="patient-item" *ngIf="selectedCall.patientData.skinTemp">
+            <span class="p-label">חום עור</span>
+            <span class="p-value">{{ selectedCall.patientData.skinTemp }}</span>
+          </div>
+          <div class="patient-item" *ngIf="selectedCall.patientData.skinMoisture">
+            <span class="p-label">לחות עור</span>
+            <span class="p-value">{{ selectedCall.patientData.skinMoisture }}</span>
+          </div>
+          <div class="patient-item" *ngIf="selectedCall.patientData.estimatedAge">
+            <span class="p-label">גיל</span>
+            <span class="p-value">{{ selectedCall.patientData.estimatedAge }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section" *ngIf="responders.length > 0">
+        <div class="section-label">שיוך כונן ידני</div>
+        <div class="responders-list">
+          <div class="responder-item" *ngFor="let r of responders"
+            [class.unavailable]="!r.isAvailable">
+            <div class="responder-info">
+              <span class="responder-name">{{ getVehicleIcon(r.vehicleType) }} {{ r.name }}</span>
+              <span class="responder-role">{{ r.role }}</span>
+            </div>
+            <button class="btn-assign"
+              [disabled]="!r.isAvailable"
+              (click)="assignResponder(r.id)">
+              {{ r.isAvailable ? 'שיוך' : 'עסוק' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="section-label">המלצות ניתוב AI</div>
+        <div *ngIf="loadingRoutes" class="loading-state">⏳ מחשב מסלולים...</div>
+        <div *ngIf="!loadingRoutes && routeRecommendations.length === 0"
+          class="empty-state small">
+          אין המלצות זמינות
+        </div>
+        <div class="route-card" *ngFor="let rec of routeRecommendations"
+          [class.route-card--recommended]="rec.isRecommended">
+          <div class="route-rank" *ngIf="rec.isRecommended">⭐ מומלץ</div>
+          <div class="route-hospital">🏥 {{ rec.hospital.name }}</div>
+          <div class="route-stats">
+            <div class="route-stat">
+              <span>⏱️</span>
+              <span>{{ rec.travelTimeMinutes }} דק' נסיעה</span>
+            </div>
+            <div class="route-stat">
+              <span>📊</span>
+              <span>עומס:
+                <span [style.color]="getLoadColor(rec.hospital.load.erLoadScore)">
+                  {{ rec.hospital.load.erLoadScore }}%
+                </span>
+              </span>
+            </div>
+            <div class="route-stat">
+              <span>⚡</span>
+              <span>TTC: {{ rec.totalTTC }} דק'</span>
+            </div>
+            <div class="route-stat">
+              <span>🛏️</span>
+              <span>{{ rec.hospital.load.availableBeds }} מיטות</span>
+            </div>
+          </div>
+          <div class="route-specialities" *ngIf="rec.hospital.specialities && rec.hospital.specialities.length">
+            <span class="spec-tag" *ngFor="let s of rec.hospital.specialities">{{ s }}</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+</div>

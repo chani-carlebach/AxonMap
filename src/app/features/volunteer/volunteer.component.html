@@ -1,0 +1,245 @@
+<!-- דף המתנדב: מראה את מצב הכוננות, קבלת בקשות, פעילות חירום והערכת מצב על המקום. -->
+<div class="volunteer-app">
+
+  <!-- ⚠️ זמני — פאנל בדיקה ידני, להסרה כשה-SignalR מחובר לשרת אמיתי ⚠️ -->
+  <div class="dev-panel">
+    <span class="dev-panel__label">🛠️ בדיקה:</span>
+    <button *ngFor="let s of devScreens" class="dev-panel__btn" (click)="s.action()">{{ s.label }}</button>
+  </div>
+
+  <div class="toast" *ngIf="toastMessage" [class]="'toast toast--' + toastType">
+    {{ toastMessage }}
+  </div>
+
+  <!-- ═══ SCREEN: IDLE — לא בכוננות ═══════════════════════ -->
+  <div class="screen idle-screen" *ngIf="screen === 'IDLE'">
+    <div class="top-bar">
+      <span class="logo">🙋 AxonMap מתנדב</span>
+      <button class="logout-btn" (click)="logout()">יציאה</button>
+    </div>
+    <div class="screen-body">
+      <div class="status-icon">😴</div>
+      <h2>אין צורך במתנדבים כרגע</h2>
+      <p>תקבל התראה אם כוחות ההצלה יזדקקו לעזרה</p>
+      <div class="info-box">
+        <span>💡</span>
+        <span>ההתראה תישלח אוטומטית כשפחות מ-30% מהאמבולנסים בתחנה פנויים</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SCREEN: INCOMING REQUEST — בקשת כוננות מהמוקד ═══ -->
+  <div class="screen request-screen" *ngIf="screen === 'INCOMING_REQUEST'">
+    <div class="alert-icon">🚨</div>
+    <h2>כוחות ההצלה בחסר!</h2>
+    <p class="request-message">{{ volunteerMessage || 'רמת הכוננות באזורך עלתה — האם אתה זמין לעזרה?' }}</p>
+    <div class="request-actions">
+      <button class="btn-accept" [disabled]="isUpdatingAvailability" (click)="respondToRequest(true)">
+        ✅ אני זמין — הכנס אותי לרשימה
+      </button>
+      <button class="btn-decline" [disabled]="isUpdatingAvailability" (click)="respondToRequest(false)">
+        ❌ לא יכול כרגע
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ SCREEN: AVAILABLE — כונן פעיל, ממתין לקריאה ═══ -->
+  <div class="screen available-screen" *ngIf="screen === 'AVAILABLE'">
+    <div class="top-bar">
+      <span class="logo">🙋 AxonMap מתנדב</span>
+      <button class="logout-btn" (click)="logout()">יציאה</button>
+    </div>
+    <div class="screen-body">
+      <div class="pulse-ring"></div>
+      <div class="status-icon">✅</div>
+      <h2>אתה ברשימת המתנדבים הזמינים</h2>
+      <p>תקבל קריאה אם תהיה קריאה בלי כונן קרוב פנוי</p>
+      <div class="info-box">
+        <span>📍</span>
+        <span>המערכת תשלח אליך קריאה לפי המיקום הקרוב ביותר</span>
+      </div>
+      <button class="btn-go-offline" [disabled]="isUpdatingAvailability" (click)="goOffline()">
+        ❌ הסר אותי מהרשימה
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ SCREEN: ACTIVE CALL — בדרך לזירה ═══════════════ -->
+  <div class="screen active-screen" *ngIf="screen === 'ACTIVE'">
+    <div class="top-bar dark">
+      <span>🚨 קריאה פעילה</span>
+    </div>
+    <div class="screen-body" *ngIf="activeCall">
+      <div class="active-icon">🏃</div>
+      <h2>פנה לזירה!</h2>
+      <div class="call-card">
+        <div class="call-row">
+          <span class="call-label">סוג אירוע</span>
+          <span class="call-value">{{ activeCall.type }}</span>
+        </div>
+        <div class="call-row" *ngIf="activeCall.location.address">
+          <span class="call-label">כתובת</span>
+          <span class="call-value">{{ activeCall.location.address }}</span>
+        </div>
+        <div class="call-row" *ngIf="!activeCall.location.address">
+          <span class="call-label">מיקום</span>
+          <span class="call-value">
+            {{ activeCall.location.lat | number:'1.4-4' }},
+            {{ activeCall.location.lng | number:'1.4-4' }}
+          </span>
+        </div>
+      </div>
+      <button class="btn-navigate" (click)="navigateToScene()">
+        🗺️ נווט לזירה ב-Waze
+      </button>
+      <button class="btn-arrived" (click)="reportArrival()">
+        📍 הגעתי לזירה
+      </button>
+      <button class="btn-decline-call" (click)="declineCall()">
+        ↩️ בטל שיוך
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ SCREEN: ON_SCENE_REPORT — הערכת מצב בזירה ═══════ -->
+  <div class="screen patient-screen" *ngIf="screen === 'ON_SCENE_REPORT'">
+
+    <div class="patient-header">
+      <h2>📋 הערכת מצב ראשונית</h2>
+      <p class="patient-sub">מלא את הנתונים כדי לקבל הנחיית פינוי</p>
+    </div>
+
+    <div class="patient-form">
+
+      <!-- הכרה -->
+      <div class="field-group">
+        <label>הכרה</label>
+        <div class="btn-grid cols-2">
+          <button *ngFor="let opt of consciousnessOptions"
+            class="field-btn" [class.active]="assessment.consciousness === opt.value"
+            (click)="assessment.consciousness = opt.value">
+            <span class="btn-icon">{{ opt.icon }}</span>
+            <span class="btn-label">{{ opt.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- נשימה -->
+      <div class="field-group">
+        <label>נשימה</label>
+        <div class="btn-grid cols-2">
+          <button *ngFor="let opt of breathingOptions"
+            class="field-btn" [class.active]="assessment.breathing === opt.value"
+            (click)="assessment.breathing = opt.value">
+            <span class="btn-icon">{{ opt.icon }}</span>
+            <span class="btn-label">{{ opt.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- דופק -->
+      <div class="field-group">
+        <label>דופק</label>
+        <div class="btn-grid cols-3">
+          <button *ngFor="let opt of pulseOptions"
+            class="field-btn" [class.active]="assessment.pulse === opt.value"
+            (click)="assessment.pulse = opt.value">
+            <span class="btn-icon">{{ opt.icon }}</span>
+            <span class="btn-label">{{ opt.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- סוג פגיעה -->
+      <div class="field-group">
+        <label>סוג פגיעה</label>
+        <div class="btn-grid cols-3">
+          <button *ngFor="let opt of injuryOptions"
+            class="field-btn" [class.active]="assessment.injuryType === opt.value"
+            (click)="assessment.injuryType = opt.value">
+            <span class="btn-icon">{{ opt.icon }}</span>
+            <span class="btn-label">{{ opt.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- גיל -->
+      <div class="field-group">
+        <label>גיל משוער</label>
+        <input type="number" [(ngModel)]="assessment.age"
+          placeholder="הזן גיל" class="age-input" min="0" max="120" />
+      </div>
+
+    </div>
+
+    <div class="form-footer">
+      <button class="btn-submit-ai"
+        [disabled]="!assessmentComplete || isSubmitting"
+        (click)="submitAssessment()">
+        <span *ngIf="!isSubmitting">🤖 שלח לניתוח AI</span>
+        <span *ngIf="isSubmitting" class="spinner-text">⏳ שולח...</span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- ═══ SCREEN: AI_RESULT — הנחיית פינוי/ייצוב ══════════ -->
+  <div class="screen result-screen" *ngIf="screen === 'AI_RESULT'">
+
+    <div class="result-header">
+      <h2>🤖 הנחיית פינוי</h2>
+    </div>
+
+    <div class="result-body" *ngIf="evacuationResult">
+
+      <!-- Recommendation box -->
+      <div class="recommendation-box"
+        [class.rec--urgent]="evacuationResult.type === 'SCOOP_AND_RUN'"
+        [class.rec--treat]="evacuationResult.type !== 'SCOOP_AND_RUN'">
+        <div class="rec-icon">{{ evacuationResult.type === 'SCOOP_AND_RUN' ? '🚀' : '🏥' }}</div>
+        <div class="rec-title">
+          {{ evacuationResult.type === 'SCOOP_AND_RUN' ? 'פינוי מיידי! (Scoop & Run)' : 'ייצוב בשטח (Stay & Play)' }}
+        </div>
+        <div class="rec-action">{{ evacuationResult.action }}</div>
+        <div class="rec-confidence" *ngIf="evacuationResult.confidence">
+          ביטחון AI: {{ evacuationResult.confidence }}%
+        </div>
+      </div>
+
+      <!-- Hospital card -->
+      <div class="hospital-card" *ngIf="evacuationResult.hospital">
+        <div class="hospital-name">🏥 {{ evacuationResult.hospital.name }}</div>
+        <div class="hospital-details">
+          <div class="hospital-detail" *ngIf="evacuationResult.travelMinutes">
+            <span class="detail-icon">⏱️</span>
+            <span>{{ evacuationResult.travelMinutes }} דקות נסיעה</span>
+          </div>
+          <div class="hospital-detail" *ngIf="evacuationResult.hospital.load">
+            <span class="detail-icon">📊</span>
+            <span>עומס מיון: {{ evacuationResult.hospital.load.erLoadScore }}%</span>
+          </div>
+          <div class="hospital-detail" *ngIf="evacuationResult.hospital.load">
+            <span class="detail-icon">🛏️</span>
+            <span>מיטות פנויות: {{ evacuationResult.hospital.load.availableBeds }}</span>
+          </div>
+        </div>
+        <div class="hospital-address" *ngIf="evacuationResult.hospital.address">
+          📍 {{ evacuationResult.hospital.address }}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="result-footer">
+      <button class="btn-navigate" (click)="navigateToHospital()" *ngIf="evacuationResult?.hospital">
+        🗺️ נווט לבית החולים ב-Waze
+      </button>
+      <button class="btn-done" (click)="finishCall()">
+        ✅ סיימתי — חזרה לכוננות
+      </button>
+    </div>
+
+  </div>
+
+</div>

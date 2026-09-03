@@ -1,0 +1,302 @@
+
+
+<!-- דף הכונן: מציג קריאה נכנסת, מסך מענה, טופס נתוני מטופל והמלצה של AI למסלול הטיפול. -->
+<div class="responder-app">
+
+  <!-- ⚠️ זמני — פאנל בדיקה ידני, להסרה כשה-SignalR מחובר לשרת אמיתי ⚠️ -->
+  <div class="dev-panel">
+    <span class="dev-panel__label">🛠️ בדיקה:</span>
+    <button *ngFor="let s of devScreens" class="dev-panel__btn" (click)="s.action()">{{ s.label }}</button>
+  </div>
+
+  <!-- ═══ TOAST ═══════════════════════════════════════════ -->
+  <div class="toast" *ngIf="toastMessage" [class]="'toast toast--' + toastType">
+    {{ toastMessage }}
+  </div>
+
+  <!-- ═══ TOP STATUS BAR (visible on all active screens) ══ -->
+  <div class="status-bar" *ngIf="screen !== 'WAITING'">
+    <div class="status-bar__info">
+      <span class="status-dot" [class]="'status-dot--' + currentStatus.toLowerCase()"></span>
+      <span class="status-bar__label">{{ getStatusLabel(currentStatus) }}</span>
+      <span class="status-bar__call" *ngIf="activeCall">
+        | {{ activeCall.location.address || 'מיקום GPS' }}
+      </span>
+    </div>
+    <div class="status-bar__actions">
+      <button
+        *ngFor="let btn of statusButtons"
+        class="status-btn"
+        [class.status-btn--active]="currentStatus === btn.value"
+        [disabled]="statusUpdating"
+        (click)="updateStatus(btn.value)">
+        <span>{{ btn.icon }}</span>
+        <span>{{ btn.label }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ SCREEN: WAITING ══════════════════════════════════ -->
+  <div class="screen waiting-screen" *ngIf="screen === 'WAITING'">
+    <div class="waiting-header">
+      <span class="logo">🚑 AxonMap</span>
+      <button class="logout-btn" (click)="logout()">יציאה</button>
+    </div>
+    <div class="waiting-body">
+      <div class="pulse-container">
+        <div class="pulse-ring pulse-ring--1"></div>
+        <div class="pulse-ring pulse-ring--2"></div>
+        <div class="pulse-ring pulse-ring--3"></div>
+        <div class="waiting-icon">🚑</div>
+      </div>
+      <h2>ממתין לקריאה</h2>
+      <p>המערכת תתריע בעת קריאה נכנסת</p>
+      <div class="gps-badge">
+        <span>📍</span>
+        <span>GPS פעיל — מיקומך משודר בזמן אמת</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SCREEN: INCOMING CALL ════════════════════════════ -->
+  <div class="screen incoming-screen" *ngIf="screen === 'INCOMING_CALL'">
+    <div class="incoming-flash"></div>
+    <div class="incoming-body">
+      <div class="call-alert-icon">🚨</div>
+      <h2>קריאה נכנסת!</h2>
+
+      <div class="call-info-card" *ngIf="activeCall">
+        <div class="call-info-row">
+          <span class="info-label">סוג אירוע</span>
+          <span class="info-value">{{ activeCall.type }}</span>
+        </div>
+        <div class="call-info-row" *ngIf="activeCall.location.address">
+          <span class="info-label">כתובת</span>
+          <span class="info-value">📍 {{ activeCall.location.address }}</span>
+        </div>
+        <div class="call-info-row" *ngIf="!activeCall.location.address">
+          <span class="info-label">מיקום GPS</span>
+          <span class="info-value">
+            {{ activeCall.location.lat | number:'1.4-4' }},
+            {{ activeCall.location.lng | number:'1.4-4' }}
+          </span>
+        </div>
+        <div class="call-info-row">
+          <span class="info-label">עדיפות</span>
+          <span class="info-value priority-badge" [class]="'priority-badge--' + activeCall.priority.toLowerCase()">
+            {{ activeCall.priority }}
+          </span>
+        </div>
+      </div>
+
+      <div class="incoming-actions">
+        <button class="btn-accept" (click)="acceptCall()">
+          <span>✅</span> קבל קריאה
+        </button>
+        <button class="btn-navigate-scene" (click)="navigateToScene(); acceptCall()">
+          <span>🗺️</span> קבל + נווט
+        </button>
+        <button class="btn-decline" (click)="declineCall()">
+          <span>❌</span> דחה
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SCREEN: PATIENT FORM ═════════════════════════════ -->
+  <div class="screen form-screen" *ngIf="screen === 'PATIENT_FORM'">
+
+    <div class="form-header">
+      <h2>🩺 הזנת נתוני מטופל</h2>
+      <div class="form-progress">
+        <div class="progress-fill" [style.width.%]="formComplete ? 100 : 40"></div>
+      </div>
+    </div>
+
+    <div class="form-body">
+
+      <!-- הכרה -->
+      <div class="field-group">
+        <label>רמת הכרה</label>
+        <div class="btn-grid cols-2">
+          <button *ngFor="let opt of consciousnessOptions"
+            class="field-btn" [class.active]="patient.consciousness === opt.value"
+            (click)="patient.consciousness = opt.value">
+            <span class="btn-icon">{{ opt.icon }}</span>
+            <span class="btn-label">{{ opt.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- נשימה -->
+      <div class="field-group">
+        <label>נשימה</label>
+        <div class="btn-grid cols-2">
+          <button *ngFor="let opt of breathingOptions"
+            class="field-btn" [class.active]="patient.breathing === opt.value"
+            (click)="patient.breathing = opt.value">
+            <span class="btn-icon">{{ opt.icon }}</span>
+            <span class="btn-label">{{ opt.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- דופק -->
+      <div class="field-group">
+        <label>דופק</label>
+        <div class="btn-grid cols-3">
+          <button *ngFor="let opt of pulseOptions"
+            class="field-btn" [class.active]="patient.pulse === opt.value"
+            (click)="patient.pulse = opt.value">
+            <span class="btn-icon">{{ opt.icon }}</span>
+            <span class="btn-label">{{ opt.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- סוג פגיעה -->
+      <div class="field-group">
+        <label>סוג פגיעה</label>
+        <div class="btn-grid cols-3">
+          <button *ngFor="let opt of injuryOptions"
+            class="field-btn" [class.active]="patient.injuryType === opt.value"
+            (click)="patient.injuryType = opt.value">
+            <span class="btn-icon">{{ opt.icon }}</span>
+            <span class="btn-label">{{ opt.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- עור -->
+      <div class="field-group">
+        <label>צבע עור</label>
+        <div class="btn-grid cols-4">
+          <button *ngFor="let opt of skinColorOptions"
+            class="field-btn" [class.active]="patient.skinColor === opt.value"
+            (click)="patient.skinColor = opt.value">
+            <span class="btn-icon">{{ opt.icon }}</span>
+            <span class="btn-label">{{ opt.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label>טמפרטורת עור</label>
+        <div class="btn-grid cols-3">
+          <button *ngFor="let opt of skinTempOptions"
+            class="field-btn" [class.active]="patient.skinTemp === opt.value"
+            (click)="patient.skinTemp = opt.value">
+            <span class="btn-icon">{{ opt.icon }}</span>
+            <span class="btn-label">{{ opt.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label>לחות עור</label>
+        <div class="btn-grid cols-3">
+          <button *ngFor="let opt of skinMoistureOptions"
+            class="field-btn" [class.active]="patient.skinMoisture === opt.value"
+            (click)="patient.skinMoisture = opt.value">
+            <span class="btn-icon">{{ opt.icon }}</span>
+            <span class="btn-label">{{ opt.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- גיל -->
+      <div class="field-group">
+        <label>גיל משוער</label>
+        <input type="number" [(ngModel)]="patient.age"
+          placeholder="הזן גיל" class="age-input" min="0" max="120" />
+      </div>
+
+    </div>
+
+    <div class="form-footer">
+      <button class="btn-submit-ai"
+        [disabled]="!formComplete || isSubmitting"
+        (click)="submitPatient()">
+        <span *ngIf="!isSubmitting">🤖 שלח לניתוח AI</span>
+        <span *ngIf="isSubmitting" class="spinner-text">⏳ שולח...</span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- ═══ SCREEN: AI RESULT ════════════════════════════════ -->
+  <div class="screen result-screen" *ngIf="screen === 'AI_RESULT'">
+
+    <div class="result-header">
+      <h2>🤖 המלצת AI</h2>
+    </div>
+
+    <div class="result-body" *ngIf="aiResult">
+
+      <!-- Recommendation box -->
+      <div class="recommendation-box"
+        [class.rec--urgent]="aiResult.type === 'SCOOP_AND_RUN'"
+        [class.rec--treat]="aiResult.type !== 'SCOOP_AND_RUN'">
+        <div class="rec-icon">{{ aiResult.type === 'SCOOP_AND_RUN' ? '🚀' : '🏥' }}</div>
+        <div class="rec-title">
+          {{ aiResult.type === 'SCOOP_AND_RUN' ? 'פנה מיד! (Scoop & Run)' : 'טפל תחילה (Stay & Play)' }}
+        </div>
+        <div class="rec-action">{{ aiResult.action }}</div>
+        <div class="rec-confidence" *ngIf="aiResult.confidence">
+          ביטחון AI: {{ aiResult.confidence }}%
+        </div>
+      </div>
+
+      <!-- Hospital card -->
+      <div class="hospital-card" *ngIf="aiResult.hospital">
+        <div class="hospital-name">🏥 {{ aiResult.hospital.name }}</div>
+        <div class="hospital-details">
+          <div class="hospital-detail">
+            <span class="detail-icon">⏱️</span>
+            <span>{{ aiResult.travelMinutes }} דקות נסיעה</span>
+          </div>
+          <div class="hospital-detail" *ngIf="aiResult.hospital.load">
+            <span class="detail-icon">📊</span>
+            <span>עומס מיון: {{ aiResult.hospital.load.erLoadScore }}%</span>
+          </div>
+          <div class="hospital-detail" *ngIf="aiResult.hospital.load">
+            <span class="detail-icon">🛏️</span>
+            <span>מיטות פנויות: {{ aiResult.hospital.load.availableBeds }}</span>
+          </div>
+        </div>
+        <div class="hospital-address" *ngIf="aiResult.hospital.address">
+          📍 {{ aiResult.hospital.address }}
+        </div>
+      </div>
+
+      <!-- Survival score -->
+      <div class="survival-score" *ngIf="aiResult.survivalScore">
+        <span class="survival-label">סיכוי הישרדות</span>
+        <div class="survival-bar">
+          <div class="survival-fill" [style.width.%]="aiResult.survivalScore"></div>
+        </div>
+        <span class="survival-pct">{{ aiResult.survivalScore }}%</span>
+      </div>
+
+    </div>
+
+    <!-- Footer: navigate + status buttons -->
+    <div class="result-footer">
+      <button class="btn-navigate" (click)="navigateToHospital()">
+        🗺️ נווט לבית החולים ב-Waze
+      </button>
+      <div class="result-status-row">
+        <button
+          *ngFor="let btn of statusButtons"
+          class="status-btn status-btn--sm"
+          [class.status-btn--active]="currentStatus === btn.value"
+          [disabled]="statusUpdating"
+          (click)="updateStatus(btn.value)">
+          {{ btn.icon }} {{ btn.label }}
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+</div>

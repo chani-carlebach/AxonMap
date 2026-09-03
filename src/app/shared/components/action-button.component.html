@@ -1,0 +1,8 @@
+<button
+  class="action-btn"
+  [class]="'action-btn action-btn--' + variant"
+  [disabled]="disabled"
+  (click)="onClick()">
+  <span *ngIf="icon" class="action-btn__icon">{{ icon }}</span>
+  <span class="action-btn__label">{{ label }}</span>
+</button>
