@@ -9,7 +9,7 @@ import { SignalrService } from '../../core/services/signalr.service';
 import { AuthService } from '../../core/services/auth.service';
 import { HospitalService } from '../../core/services/hospital.service';
 
-// ⚠️ זמני — מצב פיתוח בלבד, להסרה כשהשרת האמיתי וה-SignalR מחוברים ⚠️
+// זמני — מצב פיתוח בלבד, להסרה כשהשרת האמיתי וה-SignalR מחוברים 
 const DEV_MOCK_CALLS: EmergencyCase[] = [
   {
     id: 'dev-1', type: EmergencyType.Cardiac, status: EmergencyStatus.Pending, priority: Priority.Critical,

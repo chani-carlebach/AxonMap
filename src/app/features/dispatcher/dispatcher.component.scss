@@ -15,7 +15,7 @@ $sidebar-w: 340px;
 // ─── Layout ──────────────────────────────────────────────────
 .dispatcher-layout {
   display: flex;
-  height: calc(100vh - 41px); // ⚠️ זמני — להחזיר ל-100vh כשפאנל הבדיקה יוסר ⚠️
+  height: calc(100vh - 41px); 
   background: $bg;
   color: $text;
   font-family: 'Segoe UI', system-ui, sans-serif;
@@ -578,7 +578,7 @@ textarea.form-control { resize: none; }
   font-size: 11px;
   font-weight: 600;
 }
-// ⚠️ זמני — פאנל בדיקה ידני, להסרה כשהשרת האמיתי מחובר ⚠️
+// זמני
 .dev-panel {
   display: flex;
   flex-wrap: wrap;

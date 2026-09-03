@@ -3,7 +3,7 @@
 <!-- דף הכונן: מציג קריאה נכנסת, מסך מענה, טופס נתוני מטופל והמלצה של AI למסלול הטיפול. -->
 <div class="responder-app">
 
-  <!-- ⚠️ זמני — פאנל בדיקה ידני, להסרה כשה-SignalR מחובר לשרת אמיתי ⚠️ -->
+  <!--  זמני — פאנל בדיקה ידני, להסרה כשה-SignalR מחובר לשרת אמיתי  -->
   <div class="dev-panel">
     <span class="dev-panel__label">🛠️ בדיקה:</span>
     <button *ngFor="let s of devScreens" class="dev-panel__btn" (click)="s.action()">{{ s.label }}</button>
