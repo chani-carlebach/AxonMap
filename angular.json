@@ -41,7 +41,6 @@
                   "maximumError": "1mb"
                 },
                 {
-                  "type": "anyComponentStyle",
                   "maximumWarning": "2kb",
                   "maximumError": "4kb"
                 }
@@ -65,9 +64,11 @@
             "production": {
               "buildTarget": "pulseroute-client:build:production"
             },
-            "development": {
-              "buildTarget": "pulseroute-client:build:development"
-            }
+           {
+    "type": "anyComponentStyle",
+    "maximumWarning": "50kb",
+    "maximumError": "100kb"
+  }
           },
           "defaultConfiguration": "development"
         }
