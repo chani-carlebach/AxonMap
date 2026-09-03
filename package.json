@@ -14,7 +14,6 @@
     "@angular/platform-browser": "^19.0.0",
     "@angular/platform-browser-dynamic": "^19.0.0",
     "@angular/router": "^19.0.0",
-    "@esbuild/win32-x64": "^0.28.1",
     "@microsoft/signalr": "^8.0.0",
     "esbuild": "^0.28.1",
     "rxjs": "7.8.2",
